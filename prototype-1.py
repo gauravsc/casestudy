@@ -2,6 +2,7 @@ from gensim import corpora, models
 import numpy
 numpy.random.seed(10)
 import random
+import clarans
 num_doc=100
 
 def get_random_bow(k,total_vocab,max_occ_one_word):
@@ -61,5 +62,6 @@ for i in range(num_doc): # 0-99
 	for j in range(i,num_doc):
 		pairwise_dist_mat[i][j]=get_distance_between_2_objects(doc_vectors[i],doc_vectors[j],Q)
 		pairwise_dist_mat[j][i]=pairwise_dist_mat[i][j]		
-	
 
+nodes= [i for i in range(num_doc)]	
+clarans.clarans_basic(nodes,10,50,250,0.0125,pairwise_dist_mat)
