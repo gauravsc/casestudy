@@ -5,7 +5,10 @@ import random
 import clarans
 import sys
 import itertools
-num_doc=100
+num_doc=500
+k=50
+total_vocab=2000
+max_occ_one_word=15
 
 def get_random_bow(k,total_vocab,max_occ_one_word):
 	words_in_doc=random.sample(range(total_vocab),k)
@@ -22,12 +25,11 @@ def create_corpus_bow(number_of_documents,k,total_vocab,max_occ_one_word):
 	return corpus
 	
 	
-def create_model():	
-	corpus=create_corpus_bow(100,500,2000,15);
+def create_model(num_doc,k,total_vocab,max_occ_one_word):	
+	corpus=create_corpus_bow(num_doc,k,total_vocab,max_occ_one_word);
 	dictionary={}
-	for i in range(0,2000):
-		dictionary[i]=i
-	
+	for i in range(0,total_vocab):
+		dictionary[i]=i	
 	tfidf = models.TfidfModel(corpus)
 	corpus_tfidf = tfidf[corpus]
 	lda = models.ldamodel.LdaModel(corpus_tfidf, id2word=dictionary, num_topics=10	)
@@ -86,9 +88,9 @@ def get_cmaxmax_for_super_obj(u,v,w,pmatrix_ub,pmatrix_lb):
 	return max(pmatrix_ub[u][v]-pmatrix_lb[u][w]-pmatrix_lb[v][w],pmatrix_ub[u][w]-pmatrix_lb[w][v]-pmatrix_lb[u][v],
 	pmatrix_ub[v][w]-pmatrix_lb[u][w]-pmatrix_lb[u][v])
 
-def get_cminmax_for_super_obj(u,v,w,pmatrix_ub,pmatrix_lb):
-	return min(pmatrix_ub[u][v]-pmatrix_lb[u][w]-pmatrix_lb[v][w],pmatrix_ub[u][w]-pmatrix_lb[w][v]-pmatrix_lb[u][v],
-	pmatrix_ub[v][w]-pmatrix_lb[u][w]-pmatrix_lb[u][v])
+def get_cminmin_for_super_obj(u,v,w,pmatrix_ub,pmatrix_lb):
+	return min(pmatrix_lb[u][v]-pmatrix_ub[u][w]-pmatrix_ub[v][w],pmatrix_lb[u][w]-pmatrix_ub[w][v]-pmatrix_ub[u][v],
+	pmatrix_lb[v][w]-pmatrix_ub[u][w]-pmatrix_ub[u][v])
 
 	
 def get_minimum_cmax_for_triplets_in_db():	
@@ -96,8 +98,8 @@ def get_minimum_cmax_for_triplets_in_db():
 	triplets=itertools.combinations(sup_obj,3)
 	min_val=sys.maxint
 	for one_trip in triplets:
-		if(get_cminmax_for_super_obj(one_trip[0],one_trip[1],one_trip[1],pmatrix_ub,pmatrix_lb)<min_val):
-			min_val=get_cminmax_for_super_obj(one_trip[0],one_trip[1],one_trip[1],pmatrix_ub,pmatrix_lb);					
+		if(get_cminmin_for_super_obj(one_trip[0],one_trip[1],one_trip[1],pmatrix_ub,pmatrix_lb)<min_val):
+			min_val=get_cminmin_for_super_obj(one_trip[0],one_trip[1],one_trip[1],pmatrix_ub,pmatrix_lb);					
 	return min_val	
 	
 def get_maximum_cmax_for_triplets_in_db():	
@@ -131,15 +133,15 @@ def get_all_trip_between_gi_gi_1(sup_objects,c,c_next,pmatrix_ub,pmatrix_lb,cmax
 	triplets=itertools.combinations(sup_objects,3)
 	ret_T=[]
 	for i,j in enumerate(triplets):
-		print i,j
+		#print i,j
 		
 		if(get_cmax_for_super_obj(j[0],j[1],j[2],pmatrix_ub,pmatrix_lb)>c and get_cmax_for_super_obj(j[0],j[1],j[2],pmatrix_ub,pmatrix_lb)<=c_next):
-			print "there-1"
+			#print "there-1"
 			un_lab=[k for k in j if label_array[k]==-1]
 			cmax_values=[cmax_for_so[l] for l in un_lab]
-			print cmax_values
+			#print cmax_values
 			if(len(un_lab)>0 and max(cmax_values)<c_next and min(cmax_values)>c):
-				print "there-2"
+				#print "there-2"
 				ret_T.append(j)
 	return ret_T;	
 def get_all_trip_between_gi_gi_1_for_case_2(sup_objects,pmatrix_ub,pmatrix_lb):
@@ -165,11 +167,11 @@ def get_freq_of_grop_i(a,b,c,i):
 	
 	
 		
-def assign_group_labels(pmatrix_ub,pmatrix_lb,cmax_for_gi,i):
+def assign_group_labels(pmatrix_ub,pmatrix_lb,cmax_for_gi,i,label_array):
 	sup_objects=[itemp for itemp in range(len(pmatrix_ub))]
-	print sup_objects
+	#print sup_objects
 	T=get_all_trip_between_gi_gi_1(sup_objects,cmax_for_gi[i-1],cmax_for_gi[i],pmatrix_ub,pmatrix_lb,cmax_for_so)
-	print T;
+	#print T;
 	for one_trip in T:
 		for p in one_trip:
 			if label_array[p]==-1:
@@ -183,9 +185,9 @@ def assign_group_labels(pmatrix_ub,pmatrix_lb,cmax_for_gi,i):
 		if(label_array[one_trip[2]]==i and label_array[one_trip[0]]==label_array[one_trip[1]] and label_array[one_trip[0]]<i 
 		and get_cmax_for_super_obj(one_trip[0],one_trip[1],one_trip[2],pmatrix_ub,pmatrix_lb)>cmax_for_gi[label_array[one_trip[0]]]):
 			label_array[one_trip[0]]=i;	
-	print "here-1"	
+	#print "here-1"	
 	T_2=get_all_trip_between_gi_gi_1_for_case_2(sup_objects,pmatrix_ub,pmatrix_lb)	
-	print "here-2"			
+	#print "here-2"			
 	for one_trip in T_2:
 		if (get_cmax_for_super_obj(one_trip[0],one_trip[1],one_trip[2],pmatrix_ub,pmatrix_lb)>cmax_for_gi[i]):
 			if(label_array[one_trip[0]]==i and label_array[one_trip[1]]==i and label_array[one_trip[2]]!=i):
@@ -195,11 +197,12 @@ def assign_group_labels(pmatrix_ub,pmatrix_lb,cmax_for_gi,i):
 			elif(label_array[one_trip[1]]==i and label_array[one_trip[2]]==i and label_array[one_trip[0]]!=i):
 				label_array[one_trip[2]]=-1
 			else:
-				k=random.sample(range(3),1)
-				label_array[one_trip[k]]=-1							
+				k=random.sample(range(3),1)				
+				label_array[one_trip[k[0]]]=-1							
 	return label_array;		
+		
 	
-doc_vectors,expElogbeta=create_model()
+doc_vectors,expElogbeta=create_model(num_doc,k,total_vocab,max_occ_one_word)
 Q,R = numpy.linalg.qr(expElogbeta);
 pairwise_dist_mat = numpy.zeros(shape=(num_doc,num_doc))
 for i in range(num_doc): # 0-99
@@ -208,7 +211,7 @@ for i in range(num_doc): # 0-99
 		pairwise_dist_mat[j][i]=pairwise_dist_mat[i][j]		
 
 nodes= [i for i in range(num_doc)]	
-num_clusters=6
+num_clusters=12
 a,b,c=clarans.clarans_basic(nodes,num_clusters,50,250,0.0125,pairwise_dist_mat)
 clusters=[]
 for i in range(num_clusters):
@@ -237,9 +240,25 @@ cmax_for_gi=[0]*(num_groups+1)
 cmax_for_gi[0]=get_minimum_cmax_for_triplets_in_db()
 cmax_for_gi[num_groups]=get_maximum_cmax_for_triplets_in_db()
 for i in range(num_groups):
-	cmax_for_gi[i+1]=cmax_for_gi[i]+(cmax_for_gi[num_groups]-cmax_for_gi[0])/(num_groups)
-	
-label_array=[-1]*num_clusters	
+	cmax_for_gi[i+1]=cmax_for_gi[i]+(cmax_for_gi[num_groups]-cmax_for_gi[0])/(num_groups)	
+
+label_array=[-1]*num_clusters;	
 sup_objects=[itemp for itemp in range(len(pmatrix_ub))]
-	
 print cmax_for_gi
+i=1
+cnt=0
+while(i<=num_groups):
+	print label_array
+	cnt+=1
+	prev_label_array=label_array
+	label_array=assign_group_labels(pmatrix_ub,pmatrix_lb,cmax_for_gi,i,label_array)
+	if(label_array.count(i)<=num_clusters/num_groups and label_array.count(-1)!=0 and cnt<200): 
+		label_array=prev_label_array
+		cmax_for_gi[i]+=0.008
+	else:
+		cnt=0
+		i+=1
+
+print label_array
+		
+		
