@@ -39,7 +39,7 @@ def clarans_basic(nodes, k, numlocal, minmaxneighbor=250, p=0.0125, dist=dist_eu
     # Calculate the maxneighbor attribute
     n = len(nodes)
     if k * (n-k) <= minmaxneighbor:
-        maxneighbor = k * (n-K)
+        maxneighbor = k * (n-k)
     else:
         maxneighbor = minmaxneighbor + int(p * (k * (n - k)))
 
@@ -123,7 +123,7 @@ def tri_ineq(nodes, dist, n, k, mds, mds_d_mat, cls=None, cls_dist=None, last_md
             if not node in mds:
                 for med1 in xrange(k):
                     if mds_tracking[med1] != 1:
-                        d = dist(nodes[node],nodes[mds[med1]])
+                        d = dist[nodes[node]][nodes[mds[med1]]]
                         if d < cls_dist[node]:
                             cls[node] = mds[med1]
                             cls_dist[node] = d
@@ -148,7 +148,7 @@ def testing(nodes, mds, dist):
             cls_dist[i] = 0
         else:
             for j in xrange(k):
-                d = dist(nodes[i],nodes[mds[j]])
+                d = dist[nodes[i]][nodes[mds[j]]]
                 if d < cls_dist[i]:
                     cls_dist[i] = d
                     cls[i] = mds[j]
@@ -162,7 +162,7 @@ def clarans_itp(nodes, k, numlocal, minmaxneighbor=250, p=0.0125, dist=dist_euc)
     # Calculate the maxneighbor attribute
     n = len(nodes)
     if k * (n-k) <= minmaxneighbor:
-        maxneighbor = k * (n-K)
+        maxneighbor = k * (n-k)
     else:
         maxneighbor = minmaxneighbor + int(p * (k * (n - k)))
 
@@ -184,14 +184,13 @@ def clarans_itp(nodes, k, numlocal, minmaxneighbor=250, p=0.0125, dist=dist_euc)
         print '%d%% done...' % int(i * (1. / numlocal) * 100)
         # Select random points
         cur = np.random.permutation(range(n))[:k]
-
         # Calculate distances between medoids
         for x in xrange(k-1):
             for y in range(k)[x+1:]:
                 if x != y:
-                    d = dist(nodes[cur[x]],nodes[cur[y]])
-                    cur_mds_d_mat[x,y] = d
-                    cur_mds_d_mat[y,x] = d # TODO maybe just not do this? Use sparse matrix?
+                	d = dist[nodes[cur[x]]][nodes[cur[y]]]
+                	cur_mds_d_mat[x,y] = d
+                	cur_mds_d_mat[y,x] = d # TODO maybe just not do this? Use sparse matrix?
 
         cur_cls, cur_cls_dist = tri_ineq(nodes, dist, n, k, cur, cur_mds_d_mat, cur_cls, cur_cls_dist, mds_tracking=mds_tracking)
         cur_cost = np.sum(cur_cls_dist)
@@ -211,7 +210,7 @@ def clarans_itp(nodes, k, numlocal, minmaxneighbor=250, p=0.0125, dist=dist_euc)
             nbr_mds_d_mat = cur_mds_d_mat.copy()
             for x in xrange(k):
                 if x != rand_idx:
-                    d = dist(nodes[rand],nodes[nbr[x]])
+                    d = dist[nodes[rand]][nodes[nbr[x]]]
                     nbr_mds_d_mat[x,rand_idx] = d
                     nbr_mds_d_mat[rand_idx,x] = d
 

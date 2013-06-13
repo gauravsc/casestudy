@@ -1,66 +1,50 @@
-from gensim import corpora, models
 import numpy
-numpy.random.seed(10)
 import random
 import clarans
 import sys
 import itertools
-num_doc=500
-k=50
-total_vocab=2000
-max_occ_one_word=15
+num_doc=2000
+num_topics=20
+size_vocab=140
+num_clusters=50
+num_groups=6
 
-def get_random_bow(k,total_vocab,max_occ_one_word):
-	words_in_doc=random.sample(range(total_vocab),k)
-	doc_bow=[]
-	for i in range(k):
-		doc_bow.append((words_in_doc[i],random.randint(1,max_occ_one_word)))	
-	return doc_bow	
 
-def create_corpus_bow(number_of_documents,k,total_vocab,max_occ_one_word):
-	corpus=[]
-	for i in range(0,number_of_documents):
-		doc_bow=get_random_bow(k,total_vocab,max_occ_one_word)
-		corpus.append(doc_bow)
-	return corpus
+
+def normalize_vector(vector):
+	norm= pow(numpy.dot(vector,vector),0.5)
+	temp=[i/norm for i in vector]
+	return (temp)
+
+def genrate_vector_representation_for_one_document(num_topics,size_vocab):
+	doc_vector=[]
+	topic_word= numpy.zeros(shape=(size_vocab,num_topics))
+	for i in range(size_vocab):
+		for j in range(num_topics):
+				topic_word[i][j]=random.randint(0, 1000)
+	topic_word /=  topic_word.sum(axis=1)[:,numpy.newaxis]
+	U, s, V = numpy.linalg.svd(topic_word, full_matrices=False)
+	average_lambda=sum(s)/len(s)
+	for i in range(len(s)):
+		if(s[i]<average_lambda):
+			s[i]=0
+	average_lambda_square=pow(sum([pow(s[i],2) for i in range(len(s))]),0.5)
+	t=[k/average_lambda_square for k in s]
+	topic_wordT=topic_word.T
+	for i in range(len(t)):
+		if (t[i]>0):
+			doc_vector.append((t[i],normalize_vector(topic_wordT[i])))
+	return doc_vector
 	
-	
-def create_model(num_doc,k,total_vocab,max_occ_one_word):	
-	corpus=create_corpus_bow(num_doc,k,total_vocab,max_occ_one_word);
-	dictionary={}
-	for i in range(0,total_vocab):
-		dictionary[i]=i	
-	tfidf = models.TfidfModel(corpus)
-	corpus_tfidf = tfidf[corpus]
-	lda = models.ldamodel.LdaModel(corpus_tfidf, id2word=dictionary, num_topics=50	)
-	corpus_lda = lda[corpus]
-	num_doc=len(corpus_lda);
-	doc_vectors=[0]* num_doc;
+def distance_between_two_documents(doc_vector_1,doc_vector_2):
+	sum=0
+	for i in doc_vector_1:
+		for j in doc_vector_2:
+		   # ###print"\n\n\n\n\n"
+		   # ###print i,j
+		    sum=sum+i[0]*j[0]*pow(numpy.dot(i[1],j[1]),2)
+	return sum		
 
-	for i,j in enumerate(corpus_lda):
-		doc_vectors[i]=get_topic_distribution_doc(j)
-		
-	return (doc_vectors,lda.expElogbeta);
-
-#function is to get topic distribution for each document
-def get_topic_distribution_doc(top_doc):
-	top_doc_list={}
-	for  i in range(len(top_doc)):
-		top_doc_list[top_doc[i][0]]=top_doc[i][1]
-	return top_doc_list
-
-def get_distance_between_2_objects(doc_vector_1,doc_vector_2,expElogbeta):
-	keys_1=doc_vector_1.keys();
-	keys_2=doc_vector_2.keys();
-	dist=0;
-	for i in keys_1:
-		for j in keys_2:
-			dist+=(doc_vector_1[i]*doc_vector_2[j]*(numpy.dot(expElogbeta[i],expElogbeta[j])))
-	return (1-dist);
-	
-	
-
-	
 def get_min_lb_dist(cluster_1,cluster_2,pairwise_dist_mat):
 	min_dist=sys.maxint
 	for i in cluster_1:
@@ -69,6 +53,7 @@ def get_min_lb_dist(cluster_1,cluster_2,pairwise_dist_mat):
 				min_dist=pairwise_dist_mat[i][j]
 				
 	return min_dist	
+	
 def get_min_ub_dist(cluster_1,cluster_2,pairwise_dist_mat):
 	max_dist=-1*sys.maxint
 	for i in cluster_1:
@@ -79,7 +64,7 @@ def get_min_ub_dist(cluster_1,cluster_2,pairwise_dist_mat):
 	return max_dist	
 				
 def get_cmax_for_super_obj(u,v,w,pmatrix_ub,pmatrix_lb):	
-	return max(pmatrix_ub[u][v]-pmatrix_lb[u][w]-pmatrix_lb[v][w],pmatrix_ub[u][w]-pmatrix_lb[w][v]-pmatrix_lb[u][v],
+	return max(0,pmatrix_ub[u][v]-pmatrix_lb[u][w]-pmatrix_lb[v][w],pmatrix_ub[u][w]-pmatrix_lb[w][v]-pmatrix_lb[u][v],
 	pmatrix_ub[v][w]-pmatrix_lb[u][w]-pmatrix_lb[u][v])
 				
 				
@@ -133,21 +118,24 @@ def get_all_trip_between_gi_gi_1(sup_objects,c,c_next,pmatrix_ub,pmatrix_lb,cmax
 	triplets=itertools.combinations(sup_objects,3)
 	ret_T=[]
 	for i,j in enumerate(triplets):
-		#print i,j
-		
+		###print i,j
+		###print "hello"
+		###print get_cmax_for_super_obj(j[0],j[1],j[2],pmatrix_ub,pmatrix_lb);
 		if(get_cmax_for_super_obj(j[0],j[1],j[2],pmatrix_ub,pmatrix_lb)>c and get_cmax_for_super_obj(j[0],j[1],j[2],pmatrix_ub,pmatrix_lb)<=c_next):
-			#print "there-1"
+			###print "there-1"
 			un_lab=[k for k in j if label_array[k]==-1]
 			cmax_values=[cmax_for_so[l] for l in un_lab]
-			#print cmax_values
-			if(len(un_lab)>0 and max(cmax_values)<c_next and min(cmax_values)>c):
-				#print "there-2"
+			###print cmax_values
+			#if(len(un_lab)>0 and max(cmax_values)<c_next and min(cmax_values)>c):
+			if(len(un_lab)>0 and max(cmax_values)<c_next):
+				###print "there-2"
 				ret_T.append(j)
 	return ret_T;	
-def get_all_trip_between_gi_gi_1_for_case_2(sup_objects,pmatrix_ub,pmatrix_lb):
+	
+def get_all_trip_between_gi_gi_1_for_case_2(sup_objects,pmatrix_ub,pmatrix_lb,i):
 	triplets=itertools.combinations(sup_objects,3)
 	ret_T=[]
-	for i,j in enumerate(triplets):
+	for k,j in enumerate(triplets):
 		if (label_array[j[0]]!=-1 and label_array[j[1]]!=-1 and label_array[j[2]]!=-1 and 
 		get_freq_of_grop_i(label_array[j[0]],label_array[j[2]],label_array[j[0]],i)>=2):
 			ret_T.append(j)
@@ -169,11 +157,13 @@ def get_freq_of_grop_i(a,b,c,i):
 		
 def assign_group_labels(pmatrix_ub,pmatrix_lb,cmax_for_gi,i,label_array):
 	sup_objects=[itemp for itemp in range(len(pmatrix_ub))]
-	#print sup_objects
+	###print sup_objects
 	T=get_all_trip_between_gi_gi_1(sup_objects,cmax_for_gi[i-1],cmax_for_gi[i],pmatrix_ub,pmatrix_lb,cmax_for_so)
 	#print T;
 	for one_trip in T:
+		#print one_trip
 		for p in one_trip:
+			#print p
 			if label_array[p]==-1:
 				label_array[p]=i
 		if(label_array[one_trip[0]]==i and label_array[one_trip[1]]==label_array[one_trip[2]] and label_array[one_trip[1]]<i 
@@ -185,80 +175,113 @@ def assign_group_labels(pmatrix_ub,pmatrix_lb,cmax_for_gi,i,label_array):
 		if(label_array[one_trip[2]]==i and label_array[one_trip[0]]==label_array[one_trip[1]] and label_array[one_trip[0]]<i 
 		and get_cmax_for_super_obj(one_trip[0],one_trip[1],one_trip[2],pmatrix_ub,pmatrix_lb)>cmax_for_gi[label_array[one_trip[0]]]):
 			label_array[one_trip[0]]=i;	
-	#print "here-1"	
-	T_2=get_all_trip_between_gi_gi_1_for_case_2(sup_objects,pmatrix_ub,pmatrix_lb)	
-	#print "here-2"			
+	print label_array		
+	###print "here-1"	
+	T_2=get_all_trip_between_gi_gi_1_for_case_2(sup_objects,pmatrix_ub,pmatrix_lb,i)	
+	###print "here-2"
+	###print T_2			
 	for one_trip in T_2:
 		if (get_cmax_for_super_obj(one_trip[0],one_trip[1],one_trip[2],pmatrix_ub,pmatrix_lb)>cmax_for_gi[i]):
 			if(label_array[one_trip[0]]==i and label_array[one_trip[1]]==i and label_array[one_trip[2]]!=i):
-				label_array[one_trip[0]]=-1
+				label_array[random.choice([1,0])]=-1
 			elif(label_array[one_trip[0]]==i and label_array[one_trip[2]]==i and label_array[one_trip[1]]!=i):
-				label_array[one_trip[0]]=-1
+				label_array[random.choice([0,2])]=-1
 			elif(label_array[one_trip[1]]==i and label_array[one_trip[2]]==i and label_array[one_trip[0]]!=i):
-				label_array[one_trip[2]]=-1
-			else:
+				label_array[random.choice([1,2])]=-1
+			elif(label_array[one_trip[1]]==i and label_array[one_trip[2]]==i and label_array[one_trip[0]]==i):
 				k=random.sample(range(3),1)				
 				label_array[one_trip[k[0]]]=-1							
 	return label_array;		
 		
 	
-doc_vectors,expElogbeta=create_model(num_doc,k,total_vocab,max_occ_one_word)
-Q,R = numpy.linalg.qr(expElogbeta);
-pairwise_dist_mat = numpy.zeros(shape=(num_doc,num_doc))
-for i in range(num_doc): # 0-99
-	for j in range(i,num_doc):
-		pairwise_dist_mat[i][j]=get_distance_between_2_objects(doc_vectors[i],doc_vectors[j],Q)
-		pairwise_dist_mat[j][i]=pairwise_dist_mat[i][j]		
 
+
+	
+print "starting document generation"	
+doc_vectors=[]
+for i in range(num_doc):
+	####print '%d/500\n' %i 
+	doc_vector=genrate_vector_representation_for_one_document(random.randint(20,25),size_vocab)
+	doc_vectors.append(doc_vector)
+	
+print "starting pairwise matrix generation"		
+pairwise_dist_mat = numpy.zeros(shape=(num_doc,num_doc))
+for i in range(num_doc):
+	####print i
+	for j in range(i):
+		pairwise_dist_mat[i][j]=abs(1-distance_between_two_documents(doc_vectors[i],doc_vectors[j]))
+		pairwise_dist_mat[j][i]=pairwise_dist_mat[i][j]
+		
+			
 nodes= [i for i in range(num_doc)]	
-num_clusters=12
-a,b,c=clarans.clarans_basic(nodes,num_clusters,50,250,0.0125,pairwise_dist_mat)
+
+a,b,c=clarans.clarans_itp(nodes,num_clusters,5,250,0.000125,pairwise_dist_mat)
+#a,b,c=clarans.clarans_basic(nodes,num_clusters,5,250,0.000125,pairwise_dist_mat)
+#a,b,c=clarans.clarans_basic(nodes,num_clusters,10,100,0.00125,pairwise_dist_mat)
 clusters=[]
 for i in range(num_clusters):
 	temp=[]
 	for j in range(num_doc):
 		if b[i]==a[j]:
+			
 			temp.append(j)
 	clusters.append(temp)		
 		
-					
+temp_list=[]
+index_to_delete=[]
+for i in range(len(clusters)):
+	if len(clusters[i])<3:
+		temp_list+=clusters[i]
+		index_to_delete.append(i)
+		
+relative=0		
+for i in index_to_delete:		
+	del clusters[i-relative]
+	relative+=1
+	
+						
+for i in temp_list:
+	clusters[random.randint(0,len(clusters)-1)].append(i)
+	
+num_clusters=len(clusters)						
 				
 pmatrix_lb=numpy.zeros(shape=(num_clusters,num_clusters))
 pmatrix_ub=numpy.zeros(shape=(num_clusters,num_clusters))
 for i in range(num_clusters):
-	for j in range(i,num_clusters):
+	for j in range(num_clusters):
 	    pmatrix_lb[i][j]=get_min_lb_dist(clusters[i],clusters[j],pairwise_dist_mat);
 	    pmatrix_lb[j][i]=pmatrix_lb[i][j];
 	    pmatrix_ub[i][j]=get_min_ub_dist(clusters[i],clusters[j],pairwise_dist_mat);
         pmatrix_ub[j][i]= pmatrix_ub[i][j]			
 		
-		
-cmax_for_so=get_cmax_inside_all_superobjects(clusters,pairwise_dist_mat);
 
-num_groups=4
+cmax_for_so=get_cmax_inside_all_superobjects(clusters,pairwise_dist_mat);
+num_groups=20
+
 cmax_for_gi=[0]*(num_groups+1)
-cmax_for_gi[0]=get_minimum_cmax_for_triplets_in_db()
+#cmax_for_gi[0]=get_minimum_cmax_for_triplets_in_db()
+cmax_for_gi[0]=0
 cmax_for_gi[num_groups]=get_maximum_cmax_for_triplets_in_db()
 for i in range(num_groups):
 	cmax_for_gi[i+1]=cmax_for_gi[i]+(cmax_for_gi[num_groups]-cmax_for_gi[0])/(num_groups)	
 
 label_array=[-1]*num_clusters;	
 sup_objects=[itemp for itemp in range(len(pmatrix_ub))]
-print cmax_for_gi
+####print cmax_for_gi
 i=1
 cnt=0
-while(i<=num_groups):
-	print label_array
+while(i<=num_groups and cnt <1000):
+	###print label_array
 	cnt+=1
-	prev_label_array=label_array
+	prev_label_array=list(label_array)
 	label_array=assign_group_labels(pmatrix_ub,pmatrix_lb,cmax_for_gi,i,label_array)
-	if(label_array.count(i)<=num_clusters/num_groups and label_array.count(-1)!=0 and cnt<200): 
-		label_array=prev_label_array
-		cmax_for_gi[i]+=0.008
+	if(label_array.count(i)<=num_clusters/num_groups and label_array.count(-1)!=0): 
+		label_array=list(prev_label_array)
+		cmax_for_gi[i]+=0.001
 	else:
 		cnt=0
 		i+=1
+		###print "here is the i"
+		print i
 
-print label_array
-		
-		
+###print label_array
