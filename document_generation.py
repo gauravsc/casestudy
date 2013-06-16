@@ -3,11 +3,11 @@ import random
 import clarans
 import sys
 import itertools
-num_doc=2000
+num_doc=1000
 num_topics=20
-size_vocab=140
-num_clusters=50
-num_groups=6
+size_vocab=250
+num_clusters=100
+num_groups=20
 
 
 
@@ -215,8 +215,8 @@ for i in range(num_doc):
 			
 nodes= [i for i in range(num_doc)]	
 
-a,b,c=clarans.clarans_itp(nodes,num_clusters,5,250,0.000125,pairwise_dist_mat)
-#a,b,c=clarans.clarans_basic(nodes,num_clusters,5,250,0.000125,pairwise_dist_mat)
+#a,b,c=clarans.clarans_itp(nodes,num_clusters,5,250,0.000125,pairwise_dist_mat)
+a,b,c=clarans.clarans_basic(nodes,num_clusters,5,250,0.000125,pairwise_dist_mat)
 #a,b,c=clarans.clarans_basic(nodes,num_clusters,10,100,0.00125,pairwise_dist_mat)
 clusters=[]
 for i in range(num_clusters):
@@ -240,8 +240,10 @@ for i in index_to_delete:
 	relative+=1
 	
 						
-for i in temp_list:
-	clusters[random.randint(0,len(clusters)-1)].append(i)
+#for i in temp_list:
+#	clusters[random.randint(0,len(clusters)-1)].append(i)
+
+clusters.append(temp_list)
 	
 num_clusters=len(clusters)						
 				
@@ -256,7 +258,7 @@ for i in range(num_clusters):
 		
 
 cmax_for_so=get_cmax_inside_all_superobjects(clusters,pairwise_dist_mat);
-num_groups=20
+#num_groups=20
 
 cmax_for_gi=[0]*(num_groups+1)
 #cmax_for_gi[0]=get_minimum_cmax_for_triplets_in_db()
